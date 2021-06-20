@@ -15,46 +15,48 @@ class Log
   end
 
   def call(env)
-    @request = Rack::Request.new(env)
     status, headers, body = @app.call(env)
 
-    entry!(env, headers, status)
-    
+    entry!(env, status, headers)
+
     [status, headers, body]
   end
 
   private
 
-  def entry!(env, headers, status)
+  def entry!(env, status, headers)
     @logger.formatter = proc do |severity, datetime, progname, msg|
-      "#{datetime}\n#{msg}\n"
+      "\n#{msg}"
     end
 
-    entry = message(env, headers, status)
+    entry = message(env, status, headers)
 
     @logger.info(entry)
   end
 
-  def message(env, headers, status)
-    method       = @request.request_method
-    path         = @request.fullpath
-    controller   = env['simpler.controller'] ? env['simpler.controller'].name.capitalize + 'Controller' : nil
+  def message(env, status, headers)
+    time         = env['simpler.start_time']
+    method       = env['REQUEST_METHOD']
+    path         = env['PATH_INFO']
+    controller   = env['simpler.controller'] ? env['simpler.controller'].class.name + '#' : '-'
     action       = env['simpler.action']
-    params       = @request.params
+    params       = env['simpler.controller'] ? env['simpler.controller'].params : '-'
     # status     = status
     description  = STATUS_CODES[status]
     content_type = headers['Content-Type']
     template     = env['simpler.template_path']
     runtime      = env['simpler.runtime']
 
-    # Request:  GET /tests?id=1
+    # Start at: 2021-06-19 21:33:45
+    # Request:  GET /tests/1
     # Handler:  TestsController#show
     # Params:   {"id" => "1"}
-    # Response: 200 OK [text/html] tests/show.html.erb
+    # Response: 200 OK [text/html] tests/list.html.erb
     # Runtime:  0.007s
     <<~ENTRY
+      Start at: #{time}
       Request:  #{method} #{path}
-      Handler:  #{controller}##{action}
+      Handler:  #{controller}#{action}
       Params:   #{params}
       Response: #{status} #{description} [#{content_type}] #{template}
       Runtime:  #{runtime}s

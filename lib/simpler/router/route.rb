@@ -20,7 +20,7 @@ module Simpler
 
         route_path.each_with_index do |part, index|
           if part != req_path[index]
-            if part.start_with? ':' 
+            if part.start_with? ':'
               @params[part[1..-1]] = req_path[index]
             else
               return false
