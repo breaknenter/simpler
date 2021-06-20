@@ -3,12 +3,13 @@ require_relative 'view'
 module Simpler
   class Controller
 
-    attr_reader :name, :request, :response
+    attr_reader :name, :request, :response, :headers
 
     def initialize(env)
       @name = extract_name
       @request = Rack::Request.new(env)
       @response = Rack::Response.new
+      @headers = {}
     end
 
     def make_response(action)
@@ -22,6 +23,10 @@ module Simpler
       @response.finish
     end
 
+    def params
+      @request.params
+    end
+
     private
 
     def extract_name
@@ -32,22 +37,43 @@ module Simpler
       @response['Content-Type'] = 'text/html'
     end
 
-    def write_response
-      body = render_body
+    def set_headers
+      @response.headers.merge!(@headers)
+    end
 
-      @response.write(body)
+    def write_response
+      set_headers
+
+      if @response['Content-Type'] == 'text/html'
+        body = render_body
+
+        @response.write(body)
+      end
     end
 
     def render_body
       View.new(@request.env).render(binding)
     end
 
-    def params
-      @request.params
+    def render(template = nil, **options)
+      if template
+        @request.env['simpler.template'] = template
+      end
+
+      options.each do |option, value|
+        send("set_#{option}", value)
+      end
     end
 
-    def render(template)
-      @request.env['simpler.template'] = template
+    def status(code)
+      @response.status = code
+    end
+
+    alias_method :set_status, :status
+
+    def set_plain(text)
+      @response['Content-Type'] = 'text/plain'
+      @response.write(text)
     end
 
   end

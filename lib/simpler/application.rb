@@ -1,8 +1,11 @@
 require 'yaml'
 require 'singleton'
 require 'sequel'
+require 'time'
 require_relative 'router'
 require_relative 'controller'
+require_relative 'middleware/runtime'
+require_relative 'middleware/log'
 
 module Simpler
   class Application
@@ -28,10 +31,17 @@ module Simpler
 
     def call(env)
       route = @router.route_for(env)
-      controller = route.controller.new(env)
-      action = route.action
 
-      make_response(controller, action)
+      if route
+        controller = route.controller.new(env)
+        action     = route.action
+
+        controller.params.merge!(route.params)
+
+        make_response(controller, action)
+      else
+        route_not_found(env)
+      end
     end
 
     private
@@ -52,6 +62,13 @@ module Simpler
 
     def make_response(controller, action)
       controller.make_response(action)
+    end
+
+    def route_not_found(env)
+      path    = env['PATH_INFO']
+      message = "Error 404: route '#{path}' not found\n"
+
+      [404, { 'Content-Type' => 'text/plain' }, [message]]
     end
 
   end
